@@ -1,7 +1,10 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using MealMate.Data;
 using MealMate.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -21,8 +24,11 @@ public class IndexModel : PageModel
     public IList<SelectListItem> ProductOptions { get; private set; } = new List<SelectListItem>();
     public IList<SelectListItem> MealGroupOptions { get; private set; } = new List<SelectListItem>();
     public int? FocusId { get; private set; }
+    public int? EditingId { get; private set; }
     [BindProperty]
     public DishInputModel NewDish { get; set; } = new();
+    [BindProperty]
+    public DishInputModel EditedDish { get; set; } = new();
 
     public async Task OnGetAsync(int? focus)
     {
@@ -32,6 +38,9 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostAddAsync()
     {
+        ModelState.ClearValidationState(nameof(EditedDish));
+        ModelState.MarkFieldSkipped(nameof(EditedDish));
+
         if (!ModelState.IsValid)
         {
             await LoadAsync();
@@ -74,6 +83,81 @@ public class IndexModel : PageModel
         _context.Dishes.Remove(dish);
         await _context.SaveChangesAsync();
         return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostUpdateAsync(int id)
+    {
+        FocusId = id;
+        EditingId = id;
+
+        ModelState.ClearValidationState(nameof(NewDish));
+        ModelState.MarkFieldSkipped(nameof(NewDish));
+
+        if (!TryValidateModel(EditedDish, nameof(EditedDish)))
+        {
+            await LoadAsync();
+            FocusId = id;
+            EditingId = id;
+            return Page();
+        }
+
+        EditedDish.SelectedProductIds ??= new List<int>();
+        EditedDish.SelectedMealGroupIds ??= new List<int>();
+
+        var dish = await _context.Dishes
+            .Include(d => d.DishProducts)
+            .Include(d => d.MealGroupDishes)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (dish is null)
+        {
+            return RedirectToPage();
+        }
+
+        dish.Name = EditedDish.Name.Trim();
+        dish.Description = string.IsNullOrWhiteSpace(EditedDish.Description) ? null : EditedDish.Description.Trim();
+        dish.Instructions = string.IsNullOrWhiteSpace(EditedDish.Instructions) ? null : EditedDish.Instructions.Trim();
+        dish.PreparationMinutes = EditedDish.PreparationMinutes;
+        dish.ImageUrl = string.IsNullOrWhiteSpace(EditedDish.ImageUrl) ? null : EditedDish.ImageUrl.Trim();
+
+        var selectedProducts = EditedDish.SelectedProductIds.Distinct().ToHashSet();
+        var selectedGroups = EditedDish.SelectedMealGroupIds.Distinct().ToHashSet();
+
+        foreach (var link in dish.DishProducts.ToList())
+        {
+            if (!selectedProducts.Contains(link.ProductId))
+            {
+                _context.DishProducts.Remove(link);
+            }
+        }
+
+        foreach (var productId in selectedProducts)
+        {
+            if (!dish.DishProducts.Any(dp => dp.ProductId == productId))
+            {
+                dish.DishProducts.Add(new DishProduct { DishId = dish.Id, ProductId = productId });
+            }
+        }
+
+        foreach (var link in dish.MealGroupDishes.ToList())
+        {
+            if (!selectedGroups.Contains(link.MealGroupId))
+            {
+                _context.MealGroupDishes.Remove(link);
+            }
+        }
+
+        foreach (var groupId in selectedGroups)
+        {
+            if (!dish.MealGroupDishes.Any(mg => mg.MealGroupId == groupId))
+            {
+                dish.MealGroupDishes.Add(new MealGroupDish { DishId = dish.Id, MealGroupId = groupId });
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        return RedirectToPage(new { focus = id });
     }
 
     private async Task LoadAsync()
