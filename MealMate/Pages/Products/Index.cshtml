@@ -73,8 +73,8 @@
                                 <button type="submit" class="secondary-button">Сохранить</button>
                             </div>
                         </form>
-                        <form method="post" asp-page-handler="Delete" asp-route-id="@product.Id" onsubmit="return confirm('Удалить продукт \"@product.Name\"?');">
-                            <button type="submit" class="destructive-button">Удалить</button>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@product.Id">
+                            <button type="submit" class="destructive-button" onclick="return confirm('Удалить продукт &quot;@product.Name&quot;?');">Удалить</button>
                         </form>
                     </div>
                 }
