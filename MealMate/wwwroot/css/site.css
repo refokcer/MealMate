@@ -1202,6 +1202,7 @@ select:focus {
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 0.35;
+    pointer-events: none;
 }
 
 .menu-group-card:hover {
