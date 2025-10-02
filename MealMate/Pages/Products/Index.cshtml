@@ -1,0 +1,88 @@
+@page
+@model MealMate.Pages.Products.IndexModel
+@{
+    ViewData["Title"] = "Продукты";
+}
+
+<div class="dashboard-grid">
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h1 class="section-title">Добавьте продукты в кладовую</h1>
+                <p class="section-subtitle">Этот список поможет быстро понять, что есть дома.</p>
+            </div>
+        </div>
+
+        <form method="post" asp-page-handler="Add" class="form-grid">
+            <div asp-validation-summary="ModelOnly" class="validation-errors"></div>
+            <div class="form-row">
+                <label asp-for="NewProduct.Name"></label>
+                <input asp-for="NewProduct.Name" />
+                <span asp-validation-for="NewProduct.Name" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <label asp-for="NewProduct.Category"></label>
+                <input asp-for="NewProduct.Category" />
+                <span asp-validation-for="NewProduct.Category" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <label asp-for="NewProduct.Notes"></label>
+                <textarea asp-for="NewProduct.Notes" rows="2"></textarea>
+                <span asp-validation-for="NewProduct.Notes" class="text-danger"></span>
+            </div>
+            <div>
+                <button type="submit" class="primary-button">Добавить продукт</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Текущие продукты</h2>
+                <p class="section-subtitle">Редактируйте записи или удаляйте то, что больше не нужно.</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.EditError))
+        {
+            <div class="validation-errors">@Model.EditError</div>
+        }
+
+        @if (!Model.Products.Any())
+        {
+            <div class="empty-state">
+                <p>Начните с добавления нескольких продуктов.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-list">
+                @foreach (var product in Model.Products)
+                {
+                    var focusClass = Model.FocusId == product.Id ? "is-focus" : string.Empty;
+                    <div class="table-row @focusClass">
+                        <form method="post" asp-page-handler="Update" class="table-row-editor">
+                            <input type="hidden" name="Id" value="@product.Id" />
+                            <div class="table-row-fields">
+                                <input type="text" name="Name" value="@product.Name" placeholder="Название" required />
+                                <input type="text" name="Category" value="@product.Category" placeholder="Категория" />
+                                <input type="text" name="Notes" value="@product.Notes" placeholder="Примечания" />
+                            </div>
+                            <div class="table-actions">
+                                <button type="submit" class="secondary-button">Сохранить</button>
+                            </div>
+                        </form>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@product.Id" onsubmit="return confirm('Удалить продукт \"@product.Name\"?');">
+                            <button type="submit" class="destructive-button">Удалить</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

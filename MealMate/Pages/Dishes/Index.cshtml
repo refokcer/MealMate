@@ -1,0 +1,162 @@
+@page
+@model MealMate.Pages.Dishes.IndexModel
+@{
+    ViewData["Title"] = "Блюда";
+}
+
+<div class="dashboard-grid">
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h1 class="section-title">Добавить новое блюдо</h1>
+                <p class="section-subtitle">Сохраните рецепт, укажите продукты и привяжите его к нужной группе.</p>
+            </div>
+        </div>
+
+        <form method="post" asp-page-handler="Add" class="form-grid">
+            <div asp-validation-summary="ModelOnly" class="validation-errors"></div>
+            <div class="form-row">
+                <label asp-for="NewDish.Name"></label>
+                <input asp-for="NewDish.Name" />
+                <span asp-validation-for="NewDish.Name" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <label asp-for="NewDish.Description"></label>
+                <input asp-for="NewDish.Description" />
+                <span asp-validation-for="NewDish.Description" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <label asp-for="NewDish.Instructions"></label>
+                <textarea asp-for="NewDish.Instructions" rows="4"></textarea>
+                <span asp-validation-for="NewDish.Instructions" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <div class="dual-grid">
+                    <div>
+                        <label asp-for="NewDish.PreparationMinutes"></label>
+                        <input asp-for="NewDish.PreparationMinutes" type="number" min="1" max="360" />
+                        <span asp-validation-for="NewDish.PreparationMinutes" class="text-danger"></span>
+                    </div>
+                    <div>
+                        <label asp-for="NewDish.ImageUrl"></label>
+                        <input asp-for="NewDish.ImageUrl" />
+                        <span asp-validation-for="NewDish.ImageUrl" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <span class="form-label">@Html.DisplayNameFor(m => m.NewDish.SelectedProductIds)</span>
+                <div class="chip-group">
+                    @foreach (var option in Model.ProductOptions)
+                    {
+                        var productId = int.Parse(option.Value!);
+                        var isChecked = Model.NewDish.SelectedProductIds.Contains(productId);
+                        <label class="checkbox-chip">
+                            <input type="checkbox" name="NewDish.SelectedProductIds" value="@option.Value" @(isChecked ? "checked" : string.Empty) />
+                            <span>@option.Text</span>
+                        </label>
+                    }
+                </div>
+            </div>
+            <div class="form-row">
+                <span class="form-label">@Html.DisplayNameFor(m => m.NewDish.SelectedMealGroupIds)</span>
+                <div class="chip-group">
+                    @foreach (var option in Model.MealGroupOptions)
+                    {
+                        var groupId = int.Parse(option.Value!);
+                        var isChecked = Model.NewDish.SelectedMealGroupIds.Contains(groupId);
+                        <label class="checkbox-chip">
+                            <input type="checkbox" name="NewDish.SelectedMealGroupIds" value="@option.Value" @(isChecked ? "checked" : string.Empty) />
+                            <span>@option.Text</span>
+                        </label>
+                    }
+                </div>
+            </div>
+            <div>
+                <button type="submit" class="primary-button">Сохранить блюдо</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Коллекция блюд</h2>
+                <p class="section-subtitle">Все рецепты с описаниями и привязками к группам.</p>
+            </div>
+        </div>
+
+        @if (!Model.Dishes.Any())
+        {
+            <div class="empty-state">
+                <p>Список пуст. Добавьте блюдо, чтобы начать.</p>
+            </div>
+        }
+        else
+        {
+            <div class="dish-list">
+                @foreach (var dish in Model.Dishes)
+                {
+                    var focusClass = Model.FocusId == dish.Id ? "is-focus" : string.Empty;
+                    <article id="dish-@dish.Id" class="dish-item @focusClass">
+                        <div class="dish-details">
+                            <h3>@dish.Name</h3>
+                            <p class="muted">@dish.Description</p>
+                            @if (!string.IsNullOrWhiteSpace(dish.Instructions))
+                            {
+                                <details>
+                                    <summary>Инструкция</summary>
+                                    <p>@dish.Instructions</p>
+                                </details>
+                            }
+                        </div>
+                        <div class="chip-column">
+                            <strong>Продукты:</strong>
+                            @if (dish.DishProducts.Count == 0)
+                            {
+                                <span class="pill">Не указаны</span>
+                            }
+                            else
+                            {
+                                @foreach (var ingredient in dish.DishProducts)
+                                {
+                                    <span class="pill">@ingredient.Product.Name @if (!string.IsNullOrEmpty(ingredient.Quantity)){<text>(@ingredient.Quantity)</text>}</span>
+                                }
+                            }
+                        </div>
+                        <div class="chip-column">
+                            <strong>Группы:</strong>
+                            @if (dish.MealGroupDishes.Count == 0)
+                            {
+                                <span class="pill">Не назначено</span>
+                            }
+                            else
+                            {
+                                @foreach (var link in dish.MealGroupDishes)
+                                {
+                                    <span class="pill">@link.MealGroup.Name</span>
+                                }
+                            }
+                        </div>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@dish.Id" class="dish-actions" onsubmit="return confirm('Удалить блюдо \"@dish.Name\"?');">
+                            <button type="submit" class="destructive-button">Удалить</button>
+                        </form>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    @if (Model.FocusId.HasValue)
+    {
+        <script>
+            const element = document.getElementById('dish-@Model.FocusId');
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        </script>
+    }
+}

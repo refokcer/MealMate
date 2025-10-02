@@ -1,10 +1,162 @@
-﻿@page
+@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Домашний планировщик";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="dashboard-grid">
+    <section class="section-card hero-card">
+        <div class="hero-content">
+            <div>
+                <h1>MealMate — ваш ежедневный помощник на кухне</h1>
+                <p>Собирайте свои любимые блюда, распределяйте их по группам и следите за тем, что есть в холодильнике.</p>
+            </div>
+            <div class="hero-actions">
+                <a class="primary-button" asp-page="/Dishes/Index">Добавить блюдо</a>
+                <a class="secondary-button" asp-page="/Products/Index">Обновить список продуктов</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Группы блюд</h2>
+                <p class="section-subtitle">Используйте коллекции, чтобы быстро подобрать идеи для завтрака, обеда или ужина.</p>
+            </div>
+            <a class="primary-button" asp-page="/MealGroups/Index">Управление группами</a>
+        </div>
+
+        <div class="meal-groups">
+            @foreach (var group in Model.MealGroups)
+            {
+                var color = group.AccentColor ?? "#2563EB";
+                <article class="meal-card" style="--accent-color: @color">
+                    <div class="chip-group">
+                        <span class="pill" style="background: rgba(37, 99, 235, 0.08); color: var(--accent-color);">@group.Name</span>
+                        <span class="pill">@group.MealGroupDishes.Count блюд</span>
+                    </div>
+                    <h3>@group.Description</h3>
+                    @if (group.MealGroupDishes.Count == 0)
+                    {
+                        <p class="muted">Пока пусто. Добавьте блюда на странице "Блюда".</p>
+                    }
+                    else
+                    {
+                        <ul class="bullet-list">
+                            @foreach (var dishLink in group.MealGroupDishes.OrderBy(m => m.Dish.Name).Take(4))
+                            {
+                                <li>@dishLink.Dish.Name</li>
+                            }
+                        </ul>
+                        @if (group.MealGroupDishes.Count > 4)
+                        {
+                            <p class="muted">…и ещё @(group.MealGroupDishes.Count - 4).</p>
+                        }
+                    }
+                </article>
+            }
+        </div>
+    </section>
+
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Быстрые идеи</h2>
+                <p class="section-subtitle">Готовые рецепты с минимальными усилиями.</p>
+            </div>
+            <a class="primary-button" asp-page="/Dishes/Index">Все блюда</a>
+        </div>
+
+        @if (Model.HighlightedDishes.Count == 0)
+        {
+            <div class="empty-state">
+                <p>Добавьте своё первое блюдо, чтобы увидеть его здесь.</p>
+            </div>
+        }
+        else
+        {
+            <div class="dish-list">
+                @foreach (var dish in Model.HighlightedDishes)
+                {
+                    <article class="dish-item">
+                        <div>
+                            <h3>@dish.Name</h3>
+                            <p class="muted">@dish.Description</p>
+                        </div>
+                        <div class="chip-group">
+                            @foreach (var link in dish.MealGroupDishes)
+                            {
+                                <span class="pill">@link.MealGroup.Name</span>
+                            }
+                        </div>
+                        <div class="dish-meta">
+                            @if (dish.PreparationMinutes.HasValue)
+                            {
+                                <span class="tag">⏱️ @dish.PreparationMinutes.Value мин</span>
+                            }
+                            <a class="secondary-button" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Открыть</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Продукты под рукой</h2>
+                <p class="section-subtitle">Список ингредиентов, которые всегда есть в доме.</p>
+            </div>
+            <a class="primary-button" asp-page="/Products/Index">Управлять</a>
+        </div>
+        @if (Model.PantryProducts.Count == 0)
+        {
+            <div class="empty-state">
+                <p>Заполните свою виртуальную кладовую и следите за запасами.</p>
+            </div>
+        }
+        else
+        {
+            <div class="chip-group">
+                @foreach (var product in Model.PantryProducts)
+                {
+                    <span class="pill">@product.Name</span>
+                }
+            </div>
+        }
+    </section>
+
+    @if (Model.UngroupedDishes.Count > 0)
+    {
+        <section class="section-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Без категории</h2>
+                    <p class="section-subtitle">Блюда, которые ещё не попали в коллекции.</p>
+                </div>
+            </div>
+            <div class="dish-list">
+                @foreach (var dish in Model.UngroupedDishes)
+                {
+                    <article class="dish-item">
+                        <div>
+                            <h3>@dish.Name</h3>
+                            <p class="muted">@dish.Description</p>
+                        </div>
+                        <div class="chip-group">
+                            @foreach (var ingredient in dish.DishProducts)
+                            {
+                                <span class="pill">@ingredient.Product.Name</span>
+                            }
+                        </div>
+                        <div class="dish-meta">
+                            <a class="secondary-button" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Назначить</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
 </div>

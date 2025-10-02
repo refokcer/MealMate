@@ -1,0 +1,123 @@
+@page
+@model MealMate.Pages.MealGroups.IndexModel
+@{
+    ViewData["Title"] = "Группы блюд";
+}
+
+<div class="dashboard-grid">
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h1 class="section-title">Создайте коллекцию блюд</h1>
+                <p class="section-subtitle">Группы помогают планировать меню для разных случаев.</p>
+            </div>
+        </div>
+
+        <form method="post" asp-page-handler="Add" class="form-grid">
+            <div asp-validation-summary="ModelOnly" class="validation-errors"></div>
+            <div class="form-row">
+                <label asp-for="NewGroup.Name"></label>
+                <input asp-for="NewGroup.Name" />
+                <span asp-validation-for="NewGroup.Name" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <label asp-for="NewGroup.Description"></label>
+                <textarea asp-for="NewGroup.Description" rows="3"></textarea>
+                <span asp-validation-for="NewGroup.Description" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <label asp-for="NewGroup.AccentColor"></label>
+                <input asp-for="NewGroup.AccentColor" placeholder="#F97316" />
+                <span asp-validation-for="NewGroup.AccentColor" class="text-danger"></span>
+            </div>
+            <div>
+                <button type="submit" class="primary-button">Добавить группу</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Мои подборки</h2>
+                <p class="section-subtitle">Быстро редактируйте названия и описания, просматривайте блюда внутри.</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.EditError))
+        {
+            <div class="validation-errors">@Model.EditError</div>
+        }
+
+        @if (!Model.Groups.Any())
+        {
+            <div class="empty-state">
+                <p>Добавьте первую группу, чтобы начать планировать меню.</p>
+            </div>
+        }
+        else
+        {
+            <div class="group-list">
+                @foreach (var group in Model.Groups)
+                {
+                    var focusClass = Model.FocusId == group.Id ? "is-focus" : string.Empty;
+                    var accent = group.AccentColor ?? "#2563EB";
+                    <article class="group-item @focusClass">
+                        <div class="group-accent" style="--accent-color: @accent"></div>
+                        <div class="group-content">
+                            <form method="post" asp-page-handler="Update" class="group-form">
+                                <input type="hidden" name="Id" value="@group.Id" />
+                                <div class="group-form-grid">
+                                    <div>
+                                        <label>Название</label>
+                                        <input type="text" name="Name" value="@group.Name" required />
+                                    </div>
+                                    <div>
+                                        <label>Цвет акцента</label>
+                                        <input type="text" name="AccentColor" value="@group.AccentColor" placeholder="#F97316" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label>Описание</label>
+                                    <textarea name="Description" rows="2">@group.Description</textarea>
+                                </div>
+                                <div class="group-actions">
+                                    <button type="submit" class="secondary-button">Сохранить</button>
+                                    <button type="submit"
+                                            asp-page-handler="Delete"
+                                            asp-route-id="@group.Id"
+                                            formmethod="post"
+                                            formnovalidate
+                                            onclick="return confirm('Удалить группу \"@group.Name\"?');"
+                                            class="destructive-button">
+                                        Удалить
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="group-dishes">
+                                <strong>Блюда:</strong>
+                                @if (!group.MealGroupDishes.Any())
+                                {
+                                    <span class="pill">Пока ничего</span>
+                                }
+                                else
+                                {
+                                    <div class="chip-group">
+                                        @foreach (var dish in group.MealGroupDishes.Select(m => m.Dish).OrderBy(d => d.Name))
+                                        {
+                                            <span class="pill">@dish.Name</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
