@@ -17,7 +17,9 @@ public class IndexModel : PageModel
     }
 
     public IList<MealGroup> Groups { get; private set; } = new List<MealGroup>();
-    public MealGroupInput NewGroup { get; private set; } = new();
+
+    [BindProperty]
+    public MealGroupInput NewGroup { get; set; } = new();
     public string? EditError { get; private set; }
 
     public int? FocusId { get; private set; }
@@ -29,13 +31,25 @@ public class IndexModel : PageModel
         NewGroup = new MealGroupInput();
     }
 
-    public async Task<IActionResult> OnPostAddAsync([FromForm] MealGroupInput group)
+    public async Task<IActionResult> OnPostAddAsync()
     {
         ModelState.Clear();
-        group.AccentColor = string.IsNullOrWhiteSpace(group.AccentColor) ? null : group.AccentColor.Trim();
-        group.Name = group.Name.Trim();
-        group.Description = string.IsNullOrWhiteSpace(group.Description) ? null : group.Description.Trim();
-        NewGroup = group;
+        EditError = null;
+
+        if (NewGroup is null)
+        {
+            NewGroup = new MealGroupInput();
+        }
+
+        NewGroup.AccentColor = string.IsNullOrWhiteSpace(NewGroup.AccentColor)
+            ? null
+            : NewGroup.AccentColor.Trim();
+
+        NewGroup.Name = (NewGroup.Name ?? string.Empty).Trim();
+
+        NewGroup.Description = string.IsNullOrWhiteSpace(NewGroup.Description)
+            ? null
+            : NewGroup.Description.Trim();
 
         if (!TryValidateModel(NewGroup, nameof(NewGroup)))
         {
@@ -44,7 +58,7 @@ public class IndexModel : PageModel
         }
 
         var duplicate = await _context.MealGroups
-            .AnyAsync(g => g.Name.ToLower() == group.Name.ToLower());
+            .AnyAsync(g => g.Name.ToLower() == NewGroup.Name.ToLower());
 
         if (duplicate)
         {
@@ -55,9 +69,9 @@ public class IndexModel : PageModel
 
         var entity = new MealGroup
         {
-            Name = group.Name,
-            Description = group.Description,
-            AccentColor = group.AccentColor ?? "#2563EB"
+            Name = NewGroup.Name,
+            Description = NewGroup.Description,
+            AccentColor = NewGroup.AccentColor ?? "#2563EB"
         };
 
         _context.MealGroups.Add(entity);
