@@ -20,8 +20,8 @@
             Добавляйте новые идеи, наводите порядок в запасах и держите всю кухонную магию под рукой.
         </p>
         <div class="hero-actions">
-            <a class="button primary" asp-page="/Dishes/Index">Собрать меню</a>
-            <a class="button ghost" asp-page="/MealGroups/Index">Коллекции блюд</a>
+            <a class="button primary" asp-page="/Menu/Index">Собрать меню</a>
+            <a class="button ghost" asp-page="/MealGroups/Index">Редактировать группы</a>
         </div>
         <div class="hero-stats">
             <div class="stat-card">
@@ -219,16 +219,14 @@
         </div>
         <aside class="actions">
             <div class="form-card">
-                <h3>Добавить блюдо</h3>
-                <p class="form-caption">Заполните карточку и пополните коллекцию свежими идеями.</p>
-                <a class="button primary" asp-page="/Dishes/Create">Новое блюдо</a>
-                <a class="button ghost" asp-page="/Dishes/Index">Все блюда</a>
+                <h3>Редактирование блюд</h3>
+                <p class="form-caption">Пополняйте коллекцию новыми идеями и обновляйте существующие рецепты.</p>
+                <a class="button primary" asp-page="/Dishes/Index">Открыть редактор блюд</a>
             </div>
             <div class="form-card">
-                <h3>Новая группа</h3>
-                <p class="form-caption">Соберите подборку для нового случая или настроения.</p>
-                <a class="button primary" asp-page="/MealGroups/Create">Создать группу</a>
-                <a class="button ghost" asp-page="/MealGroups/Index">Управление группами</a>
+                <h3>Редактирование групп</h3>
+                <p class="form-caption">Создавайте новые подборки и обновляйте оформление коллекций.</p>
+                <a class="button primary" asp-page="/MealGroups/Index">Открыть редактор групп</a>
             </div>
             @if (Model.HighlightedIngredients.Any())
             {
