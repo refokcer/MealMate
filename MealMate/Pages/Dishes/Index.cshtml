@@ -179,7 +179,7 @@
                             }
                         </div>
 
-                        <form method="post" asp-page-handler="Update" asp-route-id="@dish.Id" class="dish-edit-form @(isEditing ? "is-visible" : string.Empty)" id="dish-edit-@dish.Id" @(isEditing ? string.Empty : "hidden")>
+                        <form method="post" asp-page-handler="Update" asp-route-id="@dish.Id" class="dish-edit-form@(isEditing ? " is-visible" : string.Empty)" id="dish-edit-@dish.Id" aria-hidden="@(isEditing ? "false" : "true")">
                             <div class="form-row">
                                 <label for="edit-name-@dish.Id">Название</label>
                                 <input id="edit-name-@dish.Id" name="EditedDish.Name" value="@(isEditing ? Model.EditedDish.Name : dish.Name)" required maxlength="100" />
@@ -263,14 +263,9 @@
                 const form = card.querySelector('.dish-edit-form');
                 if (!form) return;
 
-                const willOpen = form.hasAttribute('hidden');
-                if (willOpen) {
-                    form.removeAttribute('hidden');
-                    form.classList.add('is-visible');
-                } else {
-                    form.setAttribute('hidden', 'hidden');
-                    form.classList.remove('is-visible');
-                }
+                const willOpen = !form.classList.contains('is-visible');
+                form.classList.toggle('is-visible', willOpen);
+                form.setAttribute('aria-hidden', willOpen ? 'false' : 'true');
 
                 const relatedButtons = card.querySelectorAll('[data-action="toggle-edit"]');
                 relatedButtons.forEach((btn) => {
