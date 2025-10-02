@@ -180,9 +180,11 @@
                         </div>
 
                         <form method="post" asp-page-handler="Update" asp-route-id="@dish.Id" class="dish-edit-form@(isEditing ? " is-visible" : string.Empty)" id="dish-edit-@dish.Id" aria-hidden="@(isEditing ? "false" : "true")">
+                            <div asp-validation-summary="ModelOnly" class="validation-errors"></div>
                             <div class="form-row">
                                 <label for="edit-name-@dish.Id">Название</label>
                                 <input id="edit-name-@dish.Id" name="EditedDish.Name" value="@(isEditing ? Model.EditedDish.Name : dish.Name)" required maxlength="100" />
+                                <span class="text-danger" data-valmsg-for="EditedDish.Name" data-valmsg-replace="true"></span>
                             </div>
                             <div class="form-row">
                                 <label for="edit-description-@dish.Id">Краткое описание</label>
