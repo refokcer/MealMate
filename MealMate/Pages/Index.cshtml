@@ -1,162 +1,290 @@
-@page
+@page "{focusGroup:int?}"
 @model IndexModel
 @{
-    ViewData["Title"] = "Домашний планировщик";
+    ViewData["Title"] = "MealMate — планировщик питания";
+
+    var groups = Model.MealGroups;
+    var selectedGroup = Model.SelectedGroup;
+    var heroDish = selectedGroup?.MealGroupDishes
+        .Select(link => link.Dish)
+        .OrderBy(d => d.Name)
+        .FirstOrDefault();
 }
 
-<div class="dashboard-grid">
-    <section class="section-card hero-card">
-        <div class="hero-content">
-            <div>
-                <h1>MealMate — ваш ежедневный помощник на кухне</h1>
-                <p>Собирайте свои любимые блюда, распределяйте их по группам и следите за тем, что есть в холодильнике.</p>
+<section id="hero" class="hero">
+    <div class="hero-text">
+        <p class="hero-label">Уютный дом начинается с тарелки</p>
+        <h1>MealMate помогает спланировать завтрак, обед и ужин без суеты</h1>
+        <p class="hero-description">
+            Соберите коллекцию любимых блюд, распределите их по группам и моментально решайте, что приготовить.
+            Добавляйте новые идеи, наводите порядок в запасах и держите всю кухонную магию под рукой.
+        </p>
+        <div class="hero-actions">
+            <a class="button primary" asp-page="/Menu/Index">Собрать меню</a>
+            <a class="button ghost" asp-page="/MealGroups/Index">Редактировать группы</a>
+        </div>
+        <div class="hero-stats">
+            <div class="stat-card">
+                <span class="stat-number">@Model.TotalMealGroups</span>
+                <span class="stat-label">группы блюд</span>
             </div>
-            <div class="hero-actions">
-                <a class="primary-button" asp-page="/Dishes/Index">Добавить блюдо</a>
-                <a class="secondary-button" asp-page="/Products/Index">Обновить список продуктов</a>
+            <div class="stat-card">
+                <span class="stat-number">@Model.TotalDishes</span>
+                <span class="stat-label">готовых идей</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">@Model.TotalUniqueIngredients</span>
+                <span class="stat-label">уникальных продуктов</span>
             </div>
         </div>
-    </section>
-
-    <section class="section-card">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title">Группы блюд</h2>
-                <p class="section-subtitle">Используйте коллекции, чтобы быстро подобрать идеи для завтрака, обеда или ужина.</p>
-            </div>
-            <a class="primary-button" asp-page="/MealGroups/Index">Управление группами</a>
-        </div>
-
-        <div class="meal-groups">
-            @foreach (var group in Model.MealGroups)
+    </div>
+    <div class="hero-visual">
+        <div class="glass-card">
+            <h3>Сегодняшний выбор</h3>
+            <p class="glass-subtitle">
+                @if (selectedGroup is not null)
+                {
+                    <span>@(selectedGroup.Name)</span>
+                }
+                else
+                {
+                    <span>Добавьте первую группу блюд</span>
+                }
+            </p>
+            @if (heroDish is not null)
             {
-                var color = group.AccentColor ?? "#2563EB";
-                <article class="meal-card" style="--accent-color: @color">
-                    <div class="chip-group">
-                        <span class="pill" style="background: rgba(37, 99, 235, 0.08); color: var(--accent-color);">@group.Name</span>
-                        <span class="pill">@group.MealGroupDishes.Count блюд</span>
-                    </div>
-                    <h3>@group.Description</h3>
-                    @if (group.MealGroupDishes.Count == 0)
+                var heroIngredients = heroDish.DishProducts
+                    .Select(dp => dp.Product?.Name)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct()
+                    .Take(4)
+                    .ToList();
+                <div class="glass-dish">
+                    <h4>@heroDish.Name</h4>
+                    @if (!string.IsNullOrWhiteSpace(heroDish.Description))
                     {
-                        <p class="muted">Пока пусто. Добавьте блюда на странице "Блюда".</p>
+                        <p>@heroDish.Description</p>
                     }
-                    else
+                    @if (heroIngredients.Count > 0)
                     {
-                        <ul class="bullet-list">
-                            @foreach (var dishLink in group.MealGroupDishes.OrderBy(m => m.Dish.Name).Take(4))
+                        <ul>
+                            @foreach (var ingredient in heroIngredients)
                             {
-                                <li>@dishLink.Dish.Name</li>
+                                <li>@ingredient</li>
                             }
                         </ul>
-                        @if (group.MealGroupDishes.Count > 4)
+                    }
+                    @if (heroDish.PreparationMinutes.HasValue)
+                    {
+                        <span class="tag">~@heroDish.PreparationMinutes.Value минут</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="glass-empty">Подберите блюдо и добавьте его в коллекцию.</div>
+            }
+        </div>
+    </div>
+</section>
+
+<section id="groups" class="groups">
+    <header class="section-heading">
+        <div>
+            <p class="section-label">Коллекции</p>
+            <h2>Группы блюд для любого настроения</h2>
+        </div>
+        <p class="section-description">
+            Создавайте подборки блюд для завтрака, обеда, ужина, быстрых перекусов или экспериментов на выходных.
+            Переключайтесь между группами и подбирайте идеальный план.
+        </p>
+    </header>
+    <div class="group-tabs">
+        @foreach (var group in groups)
+        {
+            var isActive = selectedGroup?.Id == group.Id;
+            var accent = !string.IsNullOrWhiteSpace(group.AccentColor) ? group.AccentColor : "#f97316";
+            var groupIngredients = group.MealGroupDishes
+                .SelectMany(link => link.Dish.DishProducts)
+                .Select(dp => dp.Product?.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct()
+                .Count();
+            var groupBadge = string.IsNullOrWhiteSpace(group.Name) ? "🍽" : group.Name.Substring(0, 1).ToUpperInvariant();
+            <a class="group-tab @(isActive ? "active" : string.Empty)" asp-page="./Index" asp-route-focusGroup="@group.Id" style="--accent-color: @accent">
+                <div class="group-info">
+                    <span class="group-icon">@groupBadge</span>
+                    <div>
+                        <h3>@group.Name</h3>
+                        <p>@(string.IsNullOrWhiteSpace(group.Description) ? "Добавьте описание, чтобы не забыть идею." : group.Description)</p>
+                    </div>
+                </div>
+                <div class="group-meta">
+                    <span>@group.MealGroupDishes.Count блюд</span>
+                    <span>@groupIngredients ингредиентов</span>
+                </div>
+            </a>
+        }
+        <a class="group-tab ghost" asp-page="/MealGroups/Index">
+            <div class="group-info">
+                <span class="group-icon">＋</span>
+                <div>
+                    <h3>Новая группа</h3>
+                    <p>Соберите подборку для нового случая или настроения.</p>
+                </div>
+            </div>
+            <div class="group-meta">
+                <span>Управлять</span>
+            </div>
+        </a>
+    </div>
+</section>
+
+<section id="planner" class="planner">
+    <div class="planner-grid">
+        <div class="dish-list">
+            <header class="section-heading">
+                <div>
+                    <p class="section-label">Меню</p>
+                    <h2>@(selectedGroup is null ? "Выберите группу" : selectedGroup.Name)</h2>
+                </div>
+                @if (selectedGroup is not null)
+                {
+                    <p class="section-description">
+                        @(string.IsNullOrWhiteSpace(selectedGroup.Description) ? "Добавьте описание, чтобы эта подборка была ещё полезнее." : selectedGroup.Description)
+                    </p>
+                }
+            </header>
+            @if (selectedGroup?.MealGroupDishes.Any() == true)
+            {
+                var orderedDishes = selectedGroup.MealGroupDishes
+                    .Select(link => link.Dish)
+                    .OrderBy(d => d.Name)
+                    .ToList();
+                <div class="dish-grid">
+                    @foreach (var dish in orderedDishes)
+                    {
+                        var ingredients = dish.DishProducts
+                            .Select(dp => dp.Product?.Name)
+                            .Where(name => !string.IsNullOrWhiteSpace(name))
+                            .Distinct()
+                            .ToList();
+                        <article class="dish-card">
+                            <header>
+                                <div class="dish-title">
+                                    <span class="dish-icon">🍲</span>
+                                    <h3>@dish.Name</h3>
+                                </div>
+                                <a class="ghost" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Открыть</a>
+                            </header>
+                            @if (!string.IsNullOrWhiteSpace(dish.Description))
+                            {
+                                <p>@dish.Description</p>
+                            }
+                            @if (ingredients.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var ingredient in ingredients)
+                                    {
+                                        <li>@ingredient</li>
+                                    }
+                                </ul>
+                            }
+                            <footer>
+                                @if (dish.PreparationMinutes.HasValue)
+                                {
+                                    <span class="tag">@dish.PreparationMinutes.Value минут</span>
+                                }
+                                <a class="recipe-link" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Редактировать</a>
+                            </footer>
+                        </article>
+                    }
+                </div>
+            }
+            else if (selectedGroup is not null)
+            {
+                <div class="empty-state">
+                    <h3>Пока пусто</h3>
+                    <p>Добавьте первое блюдо в эту группу и MealMate подскажет, что приготовить.</p>
+                    <a class="button primary" asp-page="/Dishes/Index" asp-route-group="@selectedGroup.Id">Добавить блюдо</a>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <h3>Нет выбранной группы</h3>
+                    <p>Создайте коллекцию блюд и начните планировать питание.</p>
+                </div>
+            }
+        </div>
+        <aside class="actions">
+            <div class="form-card">
+                <h3>Редактирование блюд</h3>
+                <p class="form-caption">Пополняйте коллекцию новыми идеями и обновляйте существующие рецепты.</p>
+                <a class="button primary" asp-page="/Dishes/Index">Открыть редактор блюд</a>
+            </div>
+            <div class="form-card">
+                <h3>Редактирование групп</h3>
+                <p class="form-caption">Создавайте новые подборки и обновляйте оформление коллекций.</p>
+                <a class="button primary" asp-page="/MealGroups/Index">Открыть редактор групп</a>
+            </div>
+            @if (Model.HighlightedIngredients.Any())
+            {
+                <div class="ingredient-cloud">
+                    <h3>Частые ингредиенты</h3>
+                    <div class="chips">
+                        @foreach (var ingredient in Model.HighlightedIngredients)
                         {
-                            <p class="muted">…и ещё @(group.MealGroupDishes.Count - 4).</p>
+                            <span>@ingredient</span>
                         }
+                    </div>
+                </div>
+            }
+        </aside>
+    </div>
+</section>
+
+@if (Model.UngroupedDishes.Any())
+{
+    <section id="ungrouped" class="ungrouped">
+        <header class="section-heading">
+            <div>
+                <p class="section-label">Без категории</p>
+                <h2>Блюда в ожидании своей коллекции</h2>
+            </div>
+            <a class="button ghost" asp-page="/Dishes/Index">Назначить группы</a>
+        </header>
+        <div class="dish-grid compact">
+            @foreach (var dish in Model.UngroupedDishes)
+            {
+                var ingredients = dish.DishProducts
+                    .Select(dp => dp.Product?.Name)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct()
+                    .ToList();
+                <article class="dish-card">
+                    <header>
+                        <div class="dish-title">
+                            <span class="dish-icon">✨</span>
+                            <h3>@dish.Name</h3>
+                        </div>
+                        <a class="ghost" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Открыть</a>
+                    </header>
+                    @if (!string.IsNullOrWhiteSpace(dish.Description))
+                    {
+                        <p>@dish.Description</p>
+                    }
+                    @if (ingredients.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var ingredient in ingredients)
+                            {
+                                <li>@ingredient</li>
+                            }
+                        </ul>
                     }
                 </article>
             }
         </div>
     </section>
-
-    <section class="section-card">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title">Быстрые идеи</h2>
-                <p class="section-subtitle">Готовые рецепты с минимальными усилиями.</p>
-            </div>
-            <a class="primary-button" asp-page="/Dishes/Index">Все блюда</a>
-        </div>
-
-        @if (Model.HighlightedDishes.Count == 0)
-        {
-            <div class="empty-state">
-                <p>Добавьте своё первое блюдо, чтобы увидеть его здесь.</p>
-            </div>
-        }
-        else
-        {
-            <div class="dish-list">
-                @foreach (var dish in Model.HighlightedDishes)
-                {
-                    <article class="dish-item">
-                        <div>
-                            <h3>@dish.Name</h3>
-                            <p class="muted">@dish.Description</p>
-                        </div>
-                        <div class="chip-group">
-                            @foreach (var link in dish.MealGroupDishes)
-                            {
-                                <span class="pill">@link.MealGroup.Name</span>
-                            }
-                        </div>
-                        <div class="dish-meta">
-                            @if (dish.PreparationMinutes.HasValue)
-                            {
-                                <span class="tag">⏱️ @dish.PreparationMinutes.Value мин</span>
-                            }
-                            <a class="secondary-button" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Открыть</a>
-                        </div>
-                    </article>
-                }
-            </div>
-        }
-    </section>
-
-    <section class="section-card">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title">Продукты под рукой</h2>
-                <p class="section-subtitle">Список ингредиентов, которые всегда есть в доме.</p>
-            </div>
-            <a class="primary-button" asp-page="/Products/Index">Управлять</a>
-        </div>
-        @if (Model.PantryProducts.Count == 0)
-        {
-            <div class="empty-state">
-                <p>Заполните свою виртуальную кладовую и следите за запасами.</p>
-            </div>
-        }
-        else
-        {
-            <div class="chip-group">
-                @foreach (var product in Model.PantryProducts)
-                {
-                    <span class="pill">@product.Name</span>
-                }
-            </div>
-        }
-    </section>
-
-    @if (Model.UngroupedDishes.Count > 0)
-    {
-        <section class="section-card">
-            <div class="section-header">
-                <div>
-                    <h2 class="section-title">Без категории</h2>
-                    <p class="section-subtitle">Блюда, которые ещё не попали в коллекции.</p>
-                </div>
-            </div>
-            <div class="dish-list">
-                @foreach (var dish in Model.UngroupedDishes)
-                {
-                    <article class="dish-item">
-                        <div>
-                            <h3>@dish.Name</h3>
-                            <p class="muted">@dish.Description</p>
-                        </div>
-                        <div class="chip-group">
-                            @foreach (var ingredient in dish.DishProducts)
-                            {
-                                <span class="pill">@ingredient.Product.Name</span>
-                            }
-                        </div>
-                        <div class="dish-meta">
-                            <a class="secondary-button" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Назначить</a>
-                        </div>
-                    </article>
-                }
-            </div>
-        </section>
-    }
-</div>
+}

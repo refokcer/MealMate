@@ -1,0 +1,238 @@
+@page "{id:int}"
+@model MealMate.Pages.Menu.GroupModel
+@{
+    if (Model.Group is not null)
+    {
+        ViewData["Title"] = $"{Model.Group.Name} — подборка";
+    }
+    else
+    {
+        ViewData["Title"] = "Коллекция не найдена";
+    }
+}
+
+@if (Model.Group is null)
+{
+    <section class="menu-missing">
+        <h1>Группа не найдена</h1>
+        <p>Похоже, коллекция была удалена или ещё не создана.</p>
+        <a class="button primary" asp-page="/Menu/Index">Вернуться к списку групп</a>
+    </section>
+}
+else
+{
+    <section class="menu-group-hero">
+        <a class="button ghost" asp-page="/Menu/Index">← Все группы</a>
+        <div class="menu-group-hero__body">
+            <div class="menu-group-hero__badge" style="--accent-color: @(string.IsNullOrWhiteSpace(Model.Group.AccentColor) ? "#f97316" : Model.Group.AccentColor)"></div>
+            <div>
+                <p class="menu-label">Коллекция</p>
+                <h1>@Model.Group.Name</h1>
+                <p class="menu-subtitle">
+                    @(string.IsNullOrWhiteSpace(Model.Group.Description)
+                        ? "Добавьте описание, чтобы легче вспоминать настроение этой подборки."
+                        : Model.Group.Description)
+                </p>
+                <div class="menu-group-hero__meta">
+                    <span>@Model.Dishes.Count блюд</span>
+                    <span>@Model.UniqueIngredients.Count ингредиентов</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @if (Model.Dishes.Count == 0)
+    {
+        <section class="empty-state">
+            <h2>В этой коллекции пока нет блюд</h2>
+            <p>Добавьте блюда через страницу редактирования, чтобы увидеть их здесь.</p>
+            <a class="button primary" asp-page="/Dishes/Index" asp-route-group="@Model.Group.Id">Редактировать блюда</a>
+        </section>
+    }
+    else
+    {
+        <section class="menu-dishes">
+            <header class="menu-dishes__header">
+                <div>
+                    <h2>Блюда коллекции</h2>
+                    <p>Нажмите на карточку, чтобы раскрыть полное описание.</p>
+                </div>
+                <a class="button ghost" asp-page="/Dishes/Index" asp-route-focus="@Model.Dishes.First().Id">Редактировать блюда</a>
+            </header>
+
+            <div class="menu-dishes__grid" data-dish-grid>
+                @foreach (var dish in Model.Dishes)
+                {
+                    var accent = string.IsNullOrWhiteSpace(Model.Group.AccentColor) ? "#f97316" : Model.Group.AccentColor;
+                    var ingredients = dish.DishProducts
+                        .Select(dp => string.IsNullOrWhiteSpace(dp.Quantity)
+                            ? dp.Product?.Name
+                            : $"{dp.Product?.Name} ({dp.Quantity})")
+                        .Where(text => !string.IsNullOrWhiteSpace(text))
+                        .ToList();
+                    <article class="menu-dish-card" data-template-id="dish-template-@dish.Id" style="--accent-color: @accent">
+                        <div class="menu-dish-card__header">
+                            <h3>@dish.Name</h3>
+                            @if (dish.PreparationMinutes.HasValue)
+                            {
+                                <span class="menu-dish-card__time">@dish.PreparationMinutes.Value мин</span>
+                            }
+                        </div>
+                        <p class="menu-dish-card__description">
+                            @(string.IsNullOrWhiteSpace(dish.Description)
+                                ? "Краткое описание появится после редактирования блюда."
+                                : dish.Description)
+                        </p>
+                        @if (ingredients.Any())
+                        {
+                            <ul class="menu-dish-card__ingredients">
+                                @foreach (var ingredient in ingredients.Take(4))
+                                {
+                                    <li>@ingredient</li>
+                                }
+                                @if (ingredients.Count > 4)
+                                {
+                                    <li>и ещё @(ingredients.Count - 4)</li>
+                                }
+                            </ul>
+                        }
+                    </article>
+
+                    <template id="dish-template-@dish.Id">
+                        <div class="dish-modal__body">
+                            <header>
+                                <div>
+                                    <p class="menu-label">Блюдо</p>
+                                    <h2>@dish.Name</h2>
+                                </div>
+                                <button type="button" class="dish-modal__close" aria-label="Закрыть" data-close-modal>✕</button>
+                            </header>
+                            @if (!string.IsNullOrWhiteSpace(dish.ImageUrl))
+                            {
+                                <img src="@dish.ImageUrl" alt="Фото блюда @dish.Name" class="dish-modal__image" />
+                            }
+                            <div class="dish-modal__content">
+                                @if (!string.IsNullOrWhiteSpace(dish.Description))
+                                {
+                                    <p class="dish-modal__description">@dish.Description</p>
+                                }
+                                <div class="dish-modal__meta">
+                                    @if (dish.PreparationMinutes.HasValue)
+                                    {
+                                        <span class="tag">~@dish.PreparationMinutes.Value минут</span>
+                                    }
+                                    <a class="tag" asp-page="/Dishes/Index" asp-route-focus="@dish.Id">Редактировать</a>
+                                </div>
+                                <section class="dish-modal__section">
+                                    <h3>Ингредиенты</h3>
+                                    @if (!ingredients.Any())
+                                    {
+                                        <p class="dish-modal__muted">Ингредиенты ещё не указаны.</p>
+                                    }
+                                    else
+                                    {
+                                        <ul>
+                                            @foreach (var ingredient in ingredients)
+                                            {
+                                                <li>@ingredient</li>
+                                            }
+                                        </ul>
+                                    }
+                                </section>
+                                <section class="dish-modal__section">
+                                    <h3>Инструкция</h3>
+                                    @if (string.IsNullOrWhiteSpace(dish.Instructions))
+                                    {
+                                        <p class="dish-modal__muted">Добавьте инструкцию, чтобы быстрее готовить в следующий раз.</p>
+                                    }
+                                    else
+                                    {
+                                        <p>@dish.Instructions</p>
+                                    }
+                                </section>
+                            </div>
+                        </div>
+                    </template>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.OtherGroups.Any())
+    {
+        <section class="menu-other-groups">
+            <h2>Другие коллекции</h2>
+            <div class="menu-other-groups__chips">
+                @foreach (var group in Model.OtherGroups)
+                {
+                    <a class="chip" asp-page="/Menu/Group" asp-route-id="@group.Id">@group.Name</a>
+                }
+            </div>
+        </section>
+    }
+
+    <div class="dish-modal" data-dish-modal hidden aria-hidden="true">
+        <div class="dish-modal__backdrop" data-close-modal></div>
+        <div class="dish-modal__container" role="dialog" aria-modal="true">
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        (() => {
+            const modalRoot = document.querySelector('[data-dish-modal]');
+            const modalContainer = modalRoot?.querySelector('.dish-modal__container');
+            const grid = document.querySelector('[data-dish-grid]');
+
+            if (!modalRoot || !modalContainer || !grid) {
+                return;
+            }
+
+            const openModal = (templateId) => {
+                const template = document.getElementById(templateId);
+                if (!template) {
+                    return;
+                }
+
+                modalContainer.innerHTML = '';
+                modalContainer.appendChild(template.content.cloneNode(true));
+                modalRoot.hidden = false;
+                modalRoot.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('no-scroll');
+
+                modalContainer.querySelectorAll('[data-close-modal]').forEach(button => {
+                    button.addEventListener('click', closeModal, { once: true });
+                });
+            };
+
+            const closeModal = () => {
+                modalRoot.hidden = true;
+                modalRoot.setAttribute('aria-hidden', 'true');
+                modalContainer.innerHTML = '';
+                document.body.classList.remove('no-scroll');
+            };
+
+            modalRoot.addEventListener('click', (event) => {
+                if (event.target && event.target.matches('[data-close-modal], .dish-modal__backdrop')) {
+                    closeModal();
+                }
+            });
+
+            grid.querySelectorAll('.menu-dish-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const templateId = card.dataset.templateId;
+                    if (templateId) {
+                        openModal(templateId);
+                    }
+                });
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && !modalRoot.hidden) {
+                    closeModal();
+                }
+            });
+        })();
+    </script>
+}

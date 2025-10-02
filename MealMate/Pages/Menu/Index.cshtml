@@ -1,0 +1,82 @@
+@page
+@model MealMate.Pages.Menu.IndexModel
+@using System.Linq
+@{
+    ViewData["Title"] = "Меню по коллекциям";
+}
+
+<section class="menu-hero">
+    <div>
+        <p class="menu-label">Подборки</p>
+        <h1>Выберите настроение — и мы покажем подходящие блюда</h1>
+        <p class="menu-subtitle">
+            Нажмите на коллекцию, чтобы посмотреть все блюда внутри. Здесь можно быстро пролистать варианты,
+            а для полного описания откройте карточку блюда на следующем шаге.
+        </p>
+    </div>
+</section>
+
+<section class="menu-groups">
+    <header class="menu-groups__header">
+        <div>
+            <h2>Текущие группы</h2>
+            <p>Всего @Model.TotalGroups групп и @Model.TotalDishes блюд в коллекциях.</p>
+        </div>
+        <a class="button ghost" asp-page="/MealGroups/Index">Редактировать группы</a>
+    </header>
+
+    @if (!Model.MealGroups.Any() && Model.UngroupedDishesCount == 0)
+    {
+        <div class="empty-state">
+            <h3>Пока нет коллекций</h3>
+            <p>Добавьте первую группу и блюда, чтобы начать планирование меню.</p>
+        </div>
+    }
+    else
+    {
+        <div class="menu-groups__grid">
+            @foreach (var group in Model.MealGroups)
+            {
+                var accent = string.IsNullOrWhiteSpace(group.AccentColor) ? "#f97316" : group.AccentColor;
+                var dishCount = group.MealGroupDishes.Count;
+                var ingredientNames = group.MealGroupDishes
+                    .SelectMany(link => link.Dish.DishProducts)
+                    .Select(dp => dp.Product?.Name)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct()
+                    .ToList();
+                var previewIngredients = ingredientNames.Take(3).ToList();
+                <article class="menu-group-card" style="--accent-color: @accent">
+                    <div class="menu-group-card__meta">
+                        <span class="menu-group-card__pill">@dishCount блюд</span>
+                        <span class="menu-group-card__pill">@ingredientNames.Count ингредиентов</span>
+                    </div>
+                    <h3>@group.Name</h3>
+                    <p>@(string.IsNullOrWhiteSpace(group.Description) ? "Добавьте описание группы, чтобы было проще выбирать." : group.Description)</p>
+                    @if (previewIngredients.Any())
+                    {
+                        <ul class="menu-group-card__ingredients">
+                            @foreach (var ingredient in previewIngredients)
+                            {
+                                <li>@ingredient</li>
+                            }
+                        </ul>
+                    }
+                    <a class="button primary" asp-page="Group" asp-route-id="@group.Id">Посмотреть блюда</a>
+                </article>
+            }
+
+            @if (Model.UngroupedDishesCount > 0)
+            {
+                <article class="menu-group-card is-neutral">
+                    <div class="menu-group-card__meta">
+                        <span class="menu-group-card__pill">@Model.UngroupedDishesCount блюд</span>
+                    </div>
+                    <h3>Без группы</h3>
+                    <p>Эти блюда ещё не попали в коллекции. Назначьте им место или создайте новую группу.</p>
+                    <a class="button ghost" asp-page="/Dishes/Index">Редактировать блюда</a>
+                </article>
+            }
+        </div>
+    }
+</section>
