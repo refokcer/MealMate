@@ -1,4 +1,15 @@
-﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+const navToggle = document.querySelector('.nav-toggle');
+const nav = document.querySelector('.app-nav');
 
-// Write your JavaScript code.
+if (navToggle && nav) {
+    navToggle.addEventListener('click', () => {
+        const isOpen = nav.classList.toggle('is-open');
+        navToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    nav.querySelectorAll('a').forEach(link =>
+        link.addEventListener('click', () => {
+            nav.classList.remove('is-open');
+            navToggle.setAttribute('aria-expanded', 'false');
+        }));
+}
