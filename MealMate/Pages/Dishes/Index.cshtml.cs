@@ -88,21 +88,9 @@ public class IndexModel : PageModel
     public async Task<IActionResult> OnPostUpdateAsync(int id)
     {
         FocusId = id;
-        EditingId = id;
 
         ModelState.ClearValidationState(nameof(NewDish));
         ModelState.MarkFieldSkipped(nameof(NewDish));
-
-        if (!TryValidateModel(EditedDish, nameof(EditedDish)))
-        {
-            await LoadAsync();
-            FocusId = id;
-            EditingId = id;
-            return Page();
-        }
-
-        EditedDish.SelectedProductIds ??= new List<int>();
-        EditedDish.SelectedMealGroupIds ??= new List<int>();
 
         var dish = await _context.Dishes
             .Include(d => d.DishProducts)
@@ -114,14 +102,52 @@ public class IndexModel : PageModel
             return RedirectToPage();
         }
 
-        dish.Name = EditedDish.Name.Trim();
-        dish.Description = string.IsNullOrWhiteSpace(EditedDish.Description) ? null : EditedDish.Description.Trim();
-        dish.Instructions = string.IsNullOrWhiteSpace(EditedDish.Instructions) ? null : EditedDish.Instructions.Trim();
-        dish.PreparationMinutes = EditedDish.PreparationMinutes;
-        dish.ImageUrl = string.IsNullOrWhiteSpace(EditedDish.ImageUrl) ? null : EditedDish.ImageUrl.Trim();
+        var updatedDish = new DishInputModel();
+        var isUpdated = await TryUpdateModelAsync(
+            updatedDish,
+            nameof(EditedDish),
+            m => m.Name,
+            m => m.Description,
+            m => m.Instructions,
+            m => m.PreparationMinutes,
+            m => m.ImageUrl,
+            m => m.SelectedProductIds,
+            m => m.SelectedMealGroupIds);
 
-        var selectedProducts = EditedDish.SelectedProductIds.Distinct().ToHashSet();
-        var selectedGroups = EditedDish.SelectedMealGroupIds.Distinct().ToHashSet();
+        if (!isUpdated)
+        {
+            EditingId = id;
+
+            await LoadAsync();
+
+            EditedDish = updatedDish;
+            EditedDish.SelectedProductIds ??= new List<int>();
+            EditedDish.SelectedMealGroupIds ??= new List<int>();
+
+            return Page();
+        }
+
+        updatedDish.Name = updatedDish.Name.Trim();
+        updatedDish.Description = string.IsNullOrWhiteSpace(updatedDish.Description)
+            ? null
+            : updatedDish.Description.Trim();
+        updatedDish.Instructions = string.IsNullOrWhiteSpace(updatedDish.Instructions)
+            ? null
+            : updatedDish.Instructions.Trim();
+        updatedDish.ImageUrl = string.IsNullOrWhiteSpace(updatedDish.ImageUrl)
+            ? null
+            : updatedDish.ImageUrl.Trim();
+        updatedDish.SelectedProductIds = updatedDish.SelectedProductIds?.Distinct().ToList() ?? new List<int>();
+        updatedDish.SelectedMealGroupIds = updatedDish.SelectedMealGroupIds?.Distinct().ToList() ?? new List<int>();
+
+        dish.Name = updatedDish.Name;
+        dish.Description = updatedDish.Description;
+        dish.Instructions = updatedDish.Instructions;
+        dish.PreparationMinutes = updatedDish.PreparationMinutes;
+        dish.ImageUrl = updatedDish.ImageUrl;
+
+        var selectedProducts = updatedDish.SelectedProductIds.ToHashSet();
+        var selectedGroups = updatedDish.SelectedMealGroupIds.ToHashSet();
 
         foreach (var link in dish.DishProducts.ToList())
         {
