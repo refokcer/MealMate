@@ -65,7 +65,7 @@
                     <article class="group-item @focusClass">
                         <div class="group-accent" style="--accent-color: @accent"></div>
                         <div class="group-content">
-                            <form id="group-update-@group.Id" method="post" asp-page-handler="Update" class="group-form">
+                            <form method="post" asp-page-handler="Update" class="group-form">
                                 <input type="hidden" name="Id" value="@group.Id" />
                                 <div class="group-form-grid">
                                     <div>
@@ -81,13 +81,19 @@
                                     <label>Описание</label>
                                     <textarea name="Description" rows="2">@group.Description</textarea>
                                 </div>
+                                <div class="group-actions">
+                                    <button type="submit" class="secondary-button">Сохранить</button>
+                                    <button type="submit"
+                                            asp-page-handler="Delete"
+                                            asp-route-id="@group.Id"
+                                            formmethod="post"
+                                            formnovalidate
+                                            onclick="return confirm('Удалить группу \"@group.Name\"?');"
+                                            class="destructive-button">
+                                        Удалить
+                                    </button>
+                                </div>
                             </form>
-                            <div class="group-actions">
-                                <button type="submit" form="group-update-@group.Id" class="secondary-button">Сохранить</button>
-                                <form method="post" asp-page-handler="Delete" asp-route-id="@group.Id" onsubmit="return confirm('Удалить группу \"@group.Name\"?');">
-                                    <button type="submit" class="destructive-button">Удалить</button>
-                                </form>
-                            </div>
                             <div class="group-dishes">
                                 <strong>Блюда:</strong>
                                 @if (!group.MealGroupDishes.Any())
