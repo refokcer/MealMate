@@ -138,7 +138,11 @@
                                 }
                             }
                         </div>
-                        <form method="post" asp-page-handler="Delete" asp-route-id="@dish.Id" class="dish-actions" onsubmit="return confirm('Удалить блюдо \"@dish.Name\"?');">
+                        <form method="post"
+                              asp-page-handler="Delete"
+                              asp-route-id="@dish.Id"
+                              class="dish-actions"
+                              onsubmit='return confirm("Удалить блюдо @dish.Name?");'>
                             <button type="submit" class="destructive-button">Удалить</button>
                         </form>
                     </article>
