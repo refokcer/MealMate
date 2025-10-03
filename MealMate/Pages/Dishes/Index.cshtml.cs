@@ -1,7 +1,10 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using MealMate.Data;
 using MealMate.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -21,8 +24,11 @@ public class IndexModel : PageModel
     public IList<SelectListItem> ProductOptions { get; private set; } = new List<SelectListItem>();
     public IList<SelectListItem> MealGroupOptions { get; private set; } = new List<SelectListItem>();
     public int? FocusId { get; private set; }
+    public int? EditingId { get; private set; }
     [BindProperty]
     public DishInputModel NewDish { get; set; } = new();
+    [BindProperty]
+    public DishInputModel EditedDish { get; set; } = new();
 
     public async Task OnGetAsync(int? focus)
     {
@@ -32,6 +38,9 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostAddAsync()
     {
+        ModelState.ClearValidationState(nameof(EditedDish));
+        ModelState.MarkFieldSkipped(nameof(EditedDish));
+
         if (!ModelState.IsValid)
         {
             await LoadAsync();
@@ -74,6 +83,126 @@ public class IndexModel : PageModel
         _context.Dishes.Remove(dish);
         await _context.SaveChangesAsync();
         return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostUpdateAsync(int id)
+    {
+        FocusId = id;
+        EditingId = id;
+
+        ModelState.ClearValidationState(nameof(NewDish));
+        ModelState.MarkFieldSkipped(nameof(NewDish));
+
+        var dish = await _context.Dishes
+            .Include(d => d.DishProducts)
+            .Include(d => d.MealGroupDishes)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (dish is null)
+        {
+            return RedirectToPage();
+        }
+
+        var isUpdated = await TryUpdateModelAsync(
+            EditedDish,
+            nameof(EditedDish),
+            m => m.Name,
+            m => m.Description,
+            m => m.Instructions,
+            m => m.PreparationMinutes,
+            m => m.ImageUrl,
+            m => m.SelectedProductIds,
+            m => m.SelectedMealGroupIds);
+
+        if (!isUpdated)
+        {
+            await LoadAsync();
+            return Page();
+        }
+
+        EditedDish = NormalizeDishInput(EditedDish);
+
+        if (string.IsNullOrWhiteSpace(EditedDish.Name))
+        {
+            ModelState.AddModelError("EditedDish.Name", "Введите название блюда");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadAsync();
+            return Page();
+        }
+
+        ApplyDishUpdates(dish, EditedDish);
+
+        await _context.SaveChangesAsync();
+
+        return RedirectToPage(new { focus = id });
+    }
+
+    private static DishInputModel NormalizeDishInput(DishInputModel? input)
+    {
+        if (input is null)
+        {
+            return new DishInputModel();
+        }
+
+        var normalized = new DishInputModel
+        {
+            Name = input.Name?.Trim() ?? string.Empty,
+            Description = string.IsNullOrWhiteSpace(input.Description) ? null : input.Description.Trim(),
+            Instructions = string.IsNullOrWhiteSpace(input.Instructions) ? null : input.Instructions.Trim(),
+            PreparationMinutes = input.PreparationMinutes,
+            ImageUrl = string.IsNullOrWhiteSpace(input.ImageUrl) ? null : input.ImageUrl.Trim(),
+            SelectedProductIds = input.SelectedProductIds?.Distinct().ToList() ?? new List<int>(),
+            SelectedMealGroupIds = input.SelectedMealGroupIds?.Distinct().ToList() ?? new List<int>()
+        };
+
+        return normalized;
+    }
+
+    private void ApplyDishUpdates(Dish dish, DishInputModel input)
+    {
+        dish.Name = input.Name;
+        dish.Description = input.Description;
+        dish.Instructions = input.Instructions;
+        dish.PreparationMinutes = input.PreparationMinutes;
+        dish.ImageUrl = input.ImageUrl;
+
+        var selectedProducts = input.SelectedProductIds.ToHashSet();
+        var selectedGroups = input.SelectedMealGroupIds.ToHashSet();
+
+        foreach (var link in dish.DishProducts.ToList())
+        {
+            if (!selectedProducts.Contains(link.ProductId))
+            {
+                _context.DishProducts.Remove(link);
+            }
+        }
+
+        foreach (var productId in selectedProducts)
+        {
+            if (!dish.DishProducts.Any(dp => dp.ProductId == productId))
+            {
+                dish.DishProducts.Add(new DishProduct { DishId = dish.Id, ProductId = productId });
+            }
+        }
+
+        foreach (var link in dish.MealGroupDishes.ToList())
+        {
+            if (!selectedGroups.Contains(link.MealGroupId))
+            {
+                _context.MealGroupDishes.Remove(link);
+            }
+        }
+
+        foreach (var groupId in selectedGroups)
+        {
+            if (!dish.MealGroupDishes.Any(mg => mg.MealGroupId == groupId))
+            {
+                dish.MealGroupDishes.Add(new MealGroupDish { DishId = dish.Id, MealGroupId = groupId });
+            }
+        }
     }
 
     private async Task LoadAsync()

@@ -46,16 +46,37 @@
             </div>
             <div class="form-row">
                 <span class="form-label">@Html.DisplayNameFor(m => m.NewDish.SelectedProductIds)</span>
-                <div class="chip-group">
-                    @foreach (var option in Model.ProductOptions)
-                    {
-                        var productId = int.Parse(option.Value!);
-                        var isChecked = Model.NewDish.SelectedProductIds.Contains(productId);
-                        <label class="checkbox-chip">
-                            <input type="checkbox" name="NewDish.SelectedProductIds" value="@option.Value" @(isChecked ? "checked" : string.Empty) />
-                            <span>@option.Text</span>
-                        </label>
-                    }
+                <div class="multiselect" data-multiselect data-name="NewDish.SelectedProductIds">
+                    <div class="multiselect__control">
+                        <div class="multiselect__chips" data-selected-list data-placeholder="Выбранные продукты появятся здесь">
+                            @foreach (var productId in Model.NewDish.SelectedProductIds)
+                            {
+                                var selectedOption = Model.ProductOptions.FirstOrDefault(option => option.Value == productId.ToString());
+                                if (selectedOption is not null)
+                                {
+                                    <button type="button" class="multiselect__chip" data-chip data-value="@selectedOption.Value" title="Удалить продукт">@selectedOption.Text</button>
+                                }
+                            }
+                        </div>
+                        <input type="text" class="multiselect__search" data-search-input placeholder="Начните вводить название продукта" aria-label="Добавить продукт" autocomplete="off" />
+                    </div>
+                    <div class="multiselect__dropdown" data-dropdown>
+                        <ul class="multiselect__options">
+                            @foreach (var option in Model.ProductOptions)
+                            {
+                                var productId = int.Parse(option.Value!);
+                                var isSelected = Model.NewDish.SelectedProductIds.Contains(productId);
+                                <li class="multiselect__option@(isSelected ? " is-hidden" : string.Empty)" data-option data-value="@option.Value" data-label="@option.Text">@option.Text</li>
+                            }
+                        </ul>
+                        <div class="multiselect__empty" data-empty-state hidden>Ничего не найдено</div>
+                    </div>
+                    <div class="multiselect__hidden" data-hidden-inputs>
+                        @foreach (var productId in Model.NewDish.SelectedProductIds)
+                        {
+                            <input type="hidden" name="NewDish.SelectedProductIds" value="@productId" data-hidden-value="@productId" />
+                        }
+                    </div>
                 </div>
             </div>
             <div class="form-row">
@@ -97,53 +118,169 @@
             <div class="dish-list">
                 @foreach (var dish in Model.Dishes)
                 {
-                    var focusClass = Model.FocusId == dish.Id ? "is-focus" : string.Empty;
-                    <article id="dish-@dish.Id" class="dish-item @focusClass">
-                        <div class="dish-details">
-                            <h3>@dish.Name</h3>
-                            <p class="muted">@dish.Description</p>
+                    var isHighlighted = Model.FocusId == dish.Id;
+                    var isEditing = Model.EditingId == dish.Id;
+                    var selectedProducts = isEditing ? Model.EditedDish.SelectedProductIds : dish.DishProducts.Select(dp => dp.ProductId).ToList();
+                    var selectedGroups = isEditing ? Model.EditedDish.SelectedMealGroupIds : dish.MealGroupDishes.Select(mg => mg.MealGroupId).ToList();
+                    var cardClasses = $"dish-card{(isHighlighted ? " is-focus" : string.Empty)}";
+                    <article id="dish-@dish.Id" class="@cardClasses" data-dish-id="@dish.Id">
+                        <header class="dish-card__header">
+                            <div class="dish-card__title">
+                                <h3>@dish.Name</h3>
+                                @if (dish.PreparationMinutes.HasValue)
+                                {
+                                    <span class="dish-card__meta" title="Время приготовления">
+                                        ⏱️ @dish.PreparationMinutes.Value мин
+                                    </span>
+                                }
+                            </div>
+                            <div class="dish-card__actions">
+                                <button type="button" class="ghost-button" data-action="toggle-edit" aria-expanded="@(isEditing ? "true" : "false")" aria-controls="dish-edit-@dish.Id">
+                                    @(isEditing ? "Скрыть" : "Редактировать")
+                                </button>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@dish.Id" onsubmit='return confirm("Удалить блюдо @dish.Name?");'>
+                                    <button type="submit" class="destructive-button">Удалить</button>
+                                </form>
+                            </div>
+                        </header>
+
+                        <div class="dish-card__body">
+                            @if (!string.IsNullOrWhiteSpace(dish.Description))
+                            {
+                                <p class="dish-card__description">@dish.Description</p>
+                            }
+
+                            <div class="dish-card__tags">
+                                <div>
+                                    <strong>Продукты</strong>
+                                    <div class="chip-group">
+                                        @if (!dish.DishProducts.Any())
+                                        {
+                                            <span class="pill">Не указаны</span>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var ingredient in dish.DishProducts)
+                                            {
+                                                <span class="pill">
+                                                    @ingredient.Product.Name
+                                                    @if (!string.IsNullOrWhiteSpace(ingredient.Quantity))
+                                                    {
+                                                        <text>(@ingredient.Quantity)</text>
+                                                    }
+                                                </span>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong>Группы</strong>
+                                    <div class="chip-group">
+                                        @if (!dish.MealGroupDishes.Any())
+                                        {
+                                            <span class="pill">Не назначено</span>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var link in dish.MealGroupDishes)
+                                            {
+                                                <span class="pill">@link.MealGroup.Name</span>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
                             @if (!string.IsNullOrWhiteSpace(dish.Instructions))
                             {
-                                <details>
+                                <details class="dish-card__instructions" @(isEditing ? "open" : string.Empty)>
                                     <summary>Инструкция</summary>
                                     <p>@dish.Instructions</p>
                                 </details>
                             }
                         </div>
-                        <div class="chip-column">
-                            <strong>Продукты:</strong>
-                            @if (dish.DishProducts.Count == 0)
-                            {
-                                <span class="pill">Не указаны</span>
-                            }
-                            else
-                            {
-                                @foreach (var ingredient in dish.DishProducts)
-                                {
-                                    <span class="pill">@ingredient.Product.Name @if (!string.IsNullOrEmpty(ingredient.Quantity)){<text>(@ingredient.Quantity)</text>}</span>
-                                }
-                            }
-                        </div>
-                        <div class="chip-column">
-                            <strong>Группы:</strong>
-                            @if (dish.MealGroupDishes.Count == 0)
-                            {
-                                <span class="pill">Не назначено</span>
-                            }
-                            else
-                            {
-                                @foreach (var link in dish.MealGroupDishes)
-                                {
-                                    <span class="pill">@link.MealGroup.Name</span>
-                                }
-                            }
-                        </div>
-                    <form method="post" asp-page-handler="Delete" asp-route-id="@dish.Id" class="dish-actions" onsubmit='return confirm("Удалить блюдо @dish.Name?");'>
-                                <form method="post" asp-page-handler="Delete" asp-route-id="@dish.Id" class="dish-actions" onsubmit='return confirm("Удалить блюдо @dish.Name?");'>
-                                    <button type="submit" class="destructive-button">Удалить</button>
-                                </form>
-                            <button type="submit" class="destructive-button">Удалить</button>
-                    </form>
+
+                        <form method="post" asp-page-handler="Update" asp-route-id="@dish.Id" class="dish-edit-form@(isEditing ? " is-visible" : string.Empty)" id="dish-edit-@dish.Id" aria-hidden="@(isEditing ? "false" : "true")">
+                            <div asp-validation-summary="ModelOnly" class="validation-errors"></div>
+                            <div class="form-row">
+                                <label for="edit-name-@dish.Id">Название</label>
+                                <input id="edit-name-@dish.Id" name="EditedDish.Name" value="@(isEditing ? Model.EditedDish.Name : dish.Name)" required maxlength="100" />
+                                <span class="text-danger" data-valmsg-for="EditedDish.Name" data-valmsg-replace="true"></span>
+                            </div>
+                            <div class="form-row">
+                                <label for="edit-description-@dish.Id">Краткое описание</label>
+                                <input id="edit-description-@dish.Id" name="EditedDish.Description" value="@(isEditing ? Model.EditedDish.Description : dish.Description)" maxlength="300" />
+                            </div>
+                            <div class="form-row">
+                                <label for="edit-instructions-@dish.Id">Инструкция приготовления</label>
+                                <textarea id="edit-instructions-@dish.Id" name="EditedDish.Instructions" rows="4" maxlength="2000">@(isEditing ? Model.EditedDish.Instructions : dish.Instructions)</textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="dual-grid">
+                                    <div>
+                                        <label for="edit-prep-@dish.Id">Время, мин</label>
+                                        <input id="edit-prep-@dish.Id" name="EditedDish.PreparationMinutes" type="number" min="1" max="360" value="@(isEditing ? Model.EditedDish.PreparationMinutes : dish.PreparationMinutes)" />
+                                    </div>
+                                    <div>
+                                        <label for="edit-image-@dish.Id">Ссылка на изображение</label>
+                                        <input id="edit-image-@dish.Id" name="EditedDish.ImageUrl" value="@(isEditing ? Model.EditedDish.ImageUrl : dish.ImageUrl)" maxlength="200" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <span class="form-label">@Html.DisplayNameFor(m => m.NewDish.SelectedProductIds)</span>
+                                <div class="multiselect" data-multiselect data-name="EditedDish.SelectedProductIds">
+                                    <div class="multiselect__control">
+                                        <div class="multiselect__chips" data-selected-list data-placeholder="Выбранные продукты появятся здесь">
+                                            @foreach (var productId in selectedProducts)
+                                            {
+                                                var selectedOption = Model.ProductOptions.FirstOrDefault(option => option.Value == productId.ToString());
+                                                if (selectedOption is not null)
+                                                {
+                                                    <button type="button" class="multiselect__chip" data-chip data-value="@selectedOption.Value" title="Удалить продукт">@selectedOption.Text</button>
+                                                }
+                                            }
+                                        </div>
+                                        <input type="text" class="multiselect__search" data-search-input placeholder="Начните вводить название продукта" aria-label="Добавить продукт" autocomplete="off" />
+                                    </div>
+                                    <div class="multiselect__dropdown" data-dropdown>
+                                        <ul class="multiselect__options">
+                                            @foreach (var option in Model.ProductOptions)
+                                            {
+                                                var productId = int.Parse(option.Value!);
+                                                var isSelected = selectedProducts.Contains(productId);
+                                                <li class="multiselect__option@(isSelected ? " is-hidden" : string.Empty)" data-option data-value="@option.Value" data-label="@option.Text">@option.Text</li>
+                                            }
+                                        </ul>
+                                        <div class="multiselect__empty" data-empty-state hidden>Ничего не найдено</div>
+                                    </div>
+                                    <div class="multiselect__hidden" data-hidden-inputs>
+                                        @foreach (var productId in selectedProducts)
+                                        {
+                                            <input type="hidden" name="EditedDish.SelectedProductIds" value="@productId" data-hidden-value="@productId" />
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <span class="form-label">@Html.DisplayNameFor(m => m.NewDish.SelectedMealGroupIds)</span>
+                                <div class="chip-group">
+                                    @foreach (var option in Model.MealGroupOptions)
+                                    {
+                                        var groupId = int.Parse(option.Value!);
+                                        var isChecked = selectedGroups.Contains(groupId);
+                                        <label class="checkbox-chip">
+                                            <input type="checkbox" name="EditedDish.SelectedMealGroupIds" value="@option.Value" @(isChecked ? "checked" : string.Empty) />
+                                            <span>@option.Text</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                            <div class="dish-edit-actions">
+                                <button type="submit" class="primary-button">Сохранить изменения</button>
+                                <button type="button" class="ghost-button" data-action="toggle-edit" data-close="true">Отменить</button>
+                            </div>
+                        </form>
                     </article>
                 }
             </div>
@@ -162,4 +299,310 @@
             }
         </script>
     }
+    <script>
+        document.querySelectorAll('[data-action="toggle-edit"]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const card = button.closest('.dish-card');
+                if (!card) return;
+                const form = card.querySelector('.dish-edit-form');
+                if (!form) return;
+
+                const willOpen = !form.classList.contains('is-visible');
+                form.classList.toggle('is-visible', willOpen);
+                form.setAttribute('aria-hidden', willOpen ? 'false' : 'true');
+
+                const relatedButtons = card.querySelectorAll('[data-action="toggle-edit"]');
+                relatedButtons.forEach((btn) => {
+                    const expanded = willOpen ? 'true' : 'false';
+                    btn.setAttribute('aria-expanded', expanded);
+                    if (expanded === 'true') {
+                        btn.textContent = btn.dataset.close ? 'Отменить' : 'Скрыть';
+                    } else {
+                        btn.textContent = btn.dataset.close ? 'Отменить' : 'Редактировать';
+                    }
+                });
+            });
+        });
+
+        (function () {
+            const components = Array.from(document.querySelectorAll('[data-multiselect]'));
+            if (!components.length) {
+                return;
+            }
+
+            const closeOthers = (current) => {
+                components.forEach((component) => {
+                    if (component !== current) {
+                        component.classList.remove('is-open');
+                    }
+                });
+            };
+
+            document.addEventListener('click', (event) => {
+                components.forEach((component) => {
+                    if (!component.contains(event.target)) {
+                        component.classList.remove('is-open');
+                    }
+                });
+            });
+
+            components.forEach((component) => {
+                const fieldName = component.dataset.name;
+                const searchInput = component.querySelector('[data-search-input]');
+                const options = Array.from(component.querySelectorAll('[data-option]'));
+                const selectedList = component.querySelector('[data-selected-list]');
+                const hiddenContainer = component.querySelector('[data-hidden-inputs]');
+                const emptyState = component.querySelector('[data-empty-state]');
+
+                if (!fieldName || !searchInput || !selectedList || !hiddenContainer) {
+                    return;
+                }
+
+                const valueSet = new Set(Array.from(hiddenContainer.querySelectorAll('input[name="' + fieldName + '"]')).map((input) => input.value));
+                let activeIndex = -1;
+
+                const getVisibleOptions = () => options.filter((option) => !option.classList.contains('is-hidden'));
+
+                const updateActiveOption = () => {
+                    options.forEach((option) => option.classList.remove('is-active'));
+                    const visible = getVisibleOptions();
+                    if (activeIndex >= 0 && activeIndex < visible.length) {
+                        const activeOption = visible[activeIndex];
+                        activeOption.classList.add('is-active');
+                        activeOption.scrollIntoView({ block: 'nearest' });
+                    }
+                };
+
+                const updateEmptyState = () => {
+                    if (!emptyState) {
+                        return;
+                    }
+                    const hasVisible = getVisibleOptions().length > 0;
+                    emptyState.hidden = hasVisible;
+                };
+
+                const filterOptions = () => {
+                    const term = searchInput.value.trim().toLowerCase();
+                    options.forEach((option) => {
+                        const value = option.dataset.value;
+                        if (!value || valueSet.has(value)) {
+                            option.classList.add('is-hidden');
+                            return;
+                        }
+
+                        if (!term) {
+                            option.classList.remove('is-hidden');
+                            return;
+                        }
+
+                        const label = option.dataset.label?.toLowerCase() ?? '';
+                        option.classList.toggle('is-hidden', !label.includes(term));
+                    });
+
+                    const visible = getVisibleOptions();
+                    activeIndex = visible.length ? 0 : -1;
+                    updateActiveOption();
+                    updateEmptyState();
+                };
+
+                const openDropdown = () => {
+                    component.classList.add('is-open');
+                    closeOthers(component);
+                    filterOptions();
+                };
+
+                const closeDropdown = () => {
+                    component.classList.remove('is-open');
+                    activeIndex = -1;
+                    updateActiveOption();
+                };
+
+                const removeValue = (value) => {
+                    if (!valueSet.has(value)) {
+                        return;
+                    }
+
+                    valueSet.delete(value);
+
+                    hiddenContainer.querySelectorAll('[data-hidden-value]').forEach((input) => {
+                        if (input.getAttribute('data-hidden-value') === value) {
+                            input.remove();
+                        }
+                    });
+
+                    selectedList.querySelectorAll('[data-chip]').forEach((chip) => {
+                        if (chip.getAttribute('data-value') === value) {
+                            chip.remove();
+                        }
+                    });
+
+                    const option = options.find((item) => item.dataset.value === value);
+                    if (option) {
+                        option.classList.remove('is-hidden');
+                    }
+
+                    filterOptions();
+                };
+
+                const addValue = (value, label) => {
+                    if (!value || valueSet.has(value)) {
+                        return;
+                    }
+
+                    valueSet.add(value);
+
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = fieldName;
+                    hiddenInput.value = value;
+                    hiddenInput.setAttribute('data-hidden-value', value);
+                    hiddenContainer.appendChild(hiddenInput);
+
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'multiselect__chip';
+                    chip.setAttribute('data-chip', '');
+                    chip.setAttribute('data-value', value);
+                    chip.title = 'Удалить продукт';
+                    chip.textContent = label;
+                    chip.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        removeValue(value);
+                        searchInput.focus();
+                    });
+                    selectedList.appendChild(chip);
+
+                    const option = options.find((item) => item.dataset.value === value);
+                    if (option) {
+                        option.classList.add('is-hidden');
+                    }
+
+                    searchInput.value = '';
+                    filterOptions();
+                    openDropdown();
+                };
+
+                selectedList.querySelectorAll('[data-chip]').forEach((chip) => {
+                    const value = chip.getAttribute('data-value');
+                    if (!value) {
+                        return;
+                    }
+
+                    valueSet.add(value);
+
+                    chip.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        removeValue(value);
+                        searchInput.focus();
+                    });
+                });
+
+                filterOptions();
+
+                options.forEach((option) => {
+                    option.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const value = option.dataset.value;
+                        if (!value) {
+                            return;
+                        }
+
+                        addValue(value, option.dataset.label ?? option.textContent ?? value);
+                    });
+                });
+
+                component.addEventListener('mousedown', (event) => {
+                    if (event.target instanceof Element) {
+                        if (event.target.closest('[data-option]') || event.target.closest('[data-chip]')) {
+                            return;
+                        }
+                    }
+
+                    event.preventDefault();
+                    searchInput.focus();
+                    openDropdown();
+                });
+
+                searchInput.addEventListener('focus', () => {
+                    openDropdown();
+                });
+
+                searchInput.addEventListener('input', () => {
+                    filterOptions();
+                });
+
+                searchInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Backspace' && !searchInput.value) {
+                        const lastChip = selectedList.lastElementChild;
+                        if (lastChip instanceof HTMLElement) {
+                            const value = lastChip.getAttribute('data-value');
+                            if (value) {
+                                event.preventDefault();
+                                removeValue(value);
+                            }
+                        }
+                        return;
+                    }
+
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        const visible = getVisibleOptions();
+                        if (!visible.length) {
+                            return;
+                        }
+
+                        const option = activeIndex >= 0 ? visible[activeIndex] : visible[0];
+                        const value = option.dataset.value;
+                        if (value) {
+                            addValue(value, option.dataset.label ?? option.textContent ?? value);
+                        }
+                        return;
+                    }
+
+                    if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        const visible = getVisibleOptions();
+                        if (!visible.length) {
+                            return;
+                        }
+
+                        if (activeIndex < visible.length - 1) {
+                            activeIndex += 1;
+                        } else {
+                            activeIndex = 0;
+                        }
+
+                        updateActiveOption();
+                        return;
+                    }
+
+                    if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        const visible = getVisibleOptions();
+                        if (!visible.length) {
+                            return;
+                        }
+
+                        if (activeIndex <= 0) {
+                            activeIndex = visible.length - 1;
+                        } else {
+                            activeIndex -= 1;
+                        }
+
+                        updateActiveOption();
+                        return;
+                    }
+
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        closeDropdown();
+                        searchInput.blur();
+                    }
+                });
+            });
+        })();
+    </script>
 }
